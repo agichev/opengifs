@@ -140,7 +140,7 @@ if (preg_match('#^/gif/([a-f0-9]+)$#', $uri, $m)) {
 // Proxy (serve GIF from imgBB, hiding real URL)
 if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
     $pdo = getDb();
-    $stmt = $pdo->prepare("SELECT imgbb_url, mime_type FROM gifs WHERE proxy_path = ?");
+    $stmt = $pdo->prepare("SELECT id, imgbb_url, mime_type FROM gifs WHERE proxy_path = ?");
     $stmt->execute([$m[1]]);
     $gif = $stmt->fetch();
 
@@ -150,20 +150,33 @@ if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
         exit;
     }
 
-    $ch = curl_init($gif['imgbb_url']);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 15,
-        CURLOPT_FOLLOWLOCATION => true,
-    ]);
-    $body = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    $cacheDir = __DIR__ . '/cache';
+    $cacheFile = $cacheDir . '/' . $gif['id'] . '.gif';
 
-    if ($httpCode !== 200) {
-        http_response_code(502);
-        echo '<h1>502 — Failed to fetch GIF</h1>';
-        exit;
+    if (!is_dir($cacheDir)) {
+        mkdir($cacheDir, 0755, true);
+    }
+
+    if (file_exists($cacheFile)) {
+        $body = file_get_contents($cacheFile);
+    } else {
+        $ch = curl_init($gif['imgbb_url']);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_FOLLOWLOCATION => true,
+        ]);
+        $body = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200) {
+            http_response_code(502);
+            echo '<h1>502 — Failed to fetch GIF</h1>';
+            exit;
+        }
+
+        file_put_contents($cacheFile, $body);
     }
 
     header('Content-Type: ' . ($gif['mime_type'] ?: 'image/gif'));

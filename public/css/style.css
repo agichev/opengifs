@@ -119,24 +119,30 @@ body {
     gap: 16px;
 }
 
+.gif-grid {
+    content-visibility: auto;
+    contain-intrinsic-size: 300px;
+}
+
 .gif-card {
     background: #fff;
     border: 1px solid #d0d8e8;
     border-radius: 8px;
     overflow: hidden;
-    transition: box-shadow 0.2s, transform 0.1s;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     text-decoration: none;
     color: inherit;
 }
 .gif-card:hover {
     box-shadow: 0 4px 16px rgba(74,144,217,0.25);
-    transform: translateY(-2px);
 }
 .gif-card img {
     width: 100%;
     display: block;
     border-bottom: 1px solid #e8e8e8;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #f0f0f0;
 }
 .gif-card .gif-info { padding: 10px 12px; }
 .gif-card .gif-title {
