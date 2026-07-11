@@ -32,7 +32,7 @@ function importGif(string $url, string $title, string $keywords): bool
 {
     global $pdo, $imgbbKey, $dryRun;
 
-    $check = $pdo->prepare("SELECT id FROM gifs WHERE imgbb_url = ?");
+    $check = $pdo->prepare("SELECT id FROM gifs WHERE source_url = ?");
     $check->execute([$url]);
     if ($check->fetch()) { echo "  SKIP: duplicate\n"; return false; }
 
@@ -66,11 +66,12 @@ function importGif(string $url, string $title, string $keywords): bool
 
     if ($dryRun) { echo "WOULD IMPORT: $title\n"; return true; }
 
-    $stmt = $pdo->prepare("INSERT INTO gifs (title, keywords, original_name, imgbb_url, imgbb_delete_url, proxy_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO gifs (title, keywords, original_name, imgbb_url, imgbb_delete_url, source_url, proxy_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute([
         mb_substr($title, 0, 255), mb_substr($keywords, 0, 500),
         'auto_' . time() . '.gif',
         $up['data']['url'], $up['data']['delete_url'] ?? null,
+        $url,
         bin2hex(random_bytes(12)), $up['data']['size'] ?? 0, 'image/gif',
     ]);
     echo "DONE (#{$pdo->lastInsertId()})\n";

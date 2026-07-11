@@ -66,6 +66,7 @@ function ensureTable(): void
                 original_name   VARCHAR(255) DEFAULT NULL,
                 imgbb_url       VARCHAR(500) NOT NULL,
                 imgbb_delete_url VARCHAR(500) DEFAULT NULL,
+                source_url      VARCHAR(500) DEFAULT NULL,
                 proxy_path      VARCHAR(100) NOT NULL UNIQUE,
                 file_size       INT DEFAULT 0,
                 mime_type       VARCHAR(50) DEFAULT 'image/gif',
@@ -78,6 +79,10 @@ function ensureTable(): void
                 INDEX idx_views (views)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
+        // Add source_url column if missing (existing DB)
+        $pdo->exec("ALTER TABLE gifs ADD COLUMN IF NOT EXISTS source_url VARCHAR(500) DEFAULT NULL AFTER imgbb_delete_url");
+        // Drop duplicates where source_url is set (server-side cleanup)
+        $pdo->exec("DELETE FROM gifs WHERE source_url IS NOT NULL AND id NOT IN (SELECT MIN(id) FROM gifs WHERE source_url IS NOT NULL GROUP BY source_url)");
     } catch (PDOException $e) {
         http_response_code(500);
         $error = $e->getMessage();

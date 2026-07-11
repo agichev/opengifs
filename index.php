@@ -205,10 +205,12 @@ if ($uri === '/api' || $uri === '/api/') {
 // Parse endpoint (trigger auto-populate)
 if ($uri === '/parse') {
     $start = microtime(true);
-    autoPopulate(12);
+    autoPopulate(12, true);
     $elapsed = round(microtime(true) - $start, 2);
+    $pdo = getDb();
+    $total = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
     header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'imported' => 'done', 'time' => $elapsed . 's']);
+    echo json_encode(['success' => true, 'total_gifs' => (int)$total, 'time' => $elapsed . 's']);
     exit;
 }
 
