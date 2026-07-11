@@ -33,10 +33,31 @@ require __DIR__ . '/header.php';
 <?php else: ?>
     <div class="empty-state">
         <h2>No GIFs yet</h2>
-        <p>Be the first to upload a GIF!</p>
-        <br>
-        <a href="/upload" style="display:inline-block;padding:12px 28px;background:linear-gradient(to bottom,#4a90d9,#357abd);border:2px solid #2a5f9e;border-radius:6px;color:#fff;font-weight:bold;text-decoration:none;text-shadow:1px 1px 0 #2a5f9e;">Upload a GIF</a>
+        <p>Loading trending GIFs from GIPHY &amp; Tenor... <span id="parseStatus"></span></p>
+        <div style="margin-top:16px;font-size:13px;color:#888;">
+            <span id="parseSpinner" style="display:inline-block;width:16px;height:16px;border:2px solid #4a90d9;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></span>
+            Please wait, this may take a moment.
+        </div>
     </div>
+
+    <script>
+    (function() {
+        var status = document.getElementById('parseStatus');
+        var spinner = document.getElementById('parseSpinner');
+        fetch('/parse').then(function(r) { return r.json(); }).then(function(d) {
+            status.textContent = 'Imported in ' + d.time;
+            spinner.style.display = 'none';
+            if (d.success) setTimeout(function() { location.reload(); }, 1000);
+        }).catch(function() {
+            status.textContent = 'Failed to load';
+            spinner.style.display = 'none';
+        });
+    })();
+    </script>
+
+    <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 <?php endif; ?>
 
 <?php require __DIR__ . '/footer.php'; ?>

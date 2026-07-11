@@ -1,6 +1,7 @@
 <?php
 
 require __DIR__ . '/config.php';
+require __DIR__ . '/handlers/parse.php';
 
 try {
     ensureTable();
@@ -39,6 +40,11 @@ if (str_starts_with($uri, '/api/')) {
 }
 
 // ─── ROUTES ──────────────────────────────────────────────
+
+// Auto-populate if empty
+if ($uri === '/' || $uri === '' || str_starts_with($uri, '/search')) {
+    autoPopulate(6);
+}
 
 // Home
 if ($uri === '/' || $uri === '') {
@@ -193,6 +199,16 @@ if ($uri === '/api' || $uri === '/api/') {
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
     $baseUrl = $scheme . '://' . $_SERVER['HTTP_HOST'];
     require __DIR__ . '/templates/api_docs.php';
+    exit;
+}
+
+// Parse endpoint (trigger auto-populate)
+if ($uri === '/parse') {
+    $start = microtime(true);
+    autoPopulate(12);
+    $elapsed = round(microtime(true) - $start, 2);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'imported' => 'done', 'time' => $elapsed . 's']);
     exit;
 }
 
