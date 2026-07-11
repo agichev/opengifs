@@ -85,8 +85,6 @@ function ensureTable(): void
         } catch (PDOException $e) {
             // Column already exists — ignore
         }
-        // Drop duplicates where source_url is set (server-side cleanup)
-        $pdo->exec("DELETE FROM gifs WHERE source_url IS NOT NULL AND id NOT IN (SELECT MIN(id) FROM gifs WHERE source_url IS NOT NULL GROUP BY source_url)");
     } catch (PDOException $e) {
         http_response_code(500);
         $error = $e->getMessage();
