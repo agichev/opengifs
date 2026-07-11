@@ -54,7 +54,8 @@ php artisan key:generate
 
 Create a MySQL database and set your credentials in your environment. Then visit the site — migrations run automatically.
 
-> Make sure your web server points to `public/` as the document root.
+> **Document root:** point your web server to `public/` for best results.
+> If your host doesn't allow changing the document root, the root `index.php` will automatically forward requests to `public/`.
 
 ## Environment Variables
 
