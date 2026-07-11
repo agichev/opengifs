@@ -61,6 +61,8 @@ Point your web server to the project root. The `index.php` in root handles all r
 | `DB_USERNAME` | **yes** | `root` | Database user |
 | `DB_PASSWORD` | no | — | Database password |
 | `IMGBB_API_KEY` | **yes** | — | [Get here](https://api.imgbb.com/) |
+| `GIPHY_API_KEY` | no | — | GIPHY API key (100 req/h). [Get here](https://developers.giphy.com/) |
+| `PIXABAY_API_KEY` | no | — | Pixabay API key (5000 req/h). [Get here](https://pixabay.com/api/docs/) |
 
 ## <a name="api"></a>API
 
