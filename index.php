@@ -1,8 +1,6 @@
 <?php
 
 require __DIR__ . '/config.php';
-require __DIR__ . '/handlers/parse.php';
-
 try {
     ensureTable();
 } catch (Exception $e) {
@@ -40,11 +38,6 @@ if (str_starts_with($uri, '/api/')) {
 }
 
 // ─── ROUTES ──────────────────────────────────────────────
-
-// Auto-populate if empty
-if ($uri === '/' || $uri === '' || str_starts_with($uri, '/search')) {
-    autoPopulate(6);
-}
 
 // Home
 if ($uri === '/' || $uri === '') {
@@ -195,77 +188,21 @@ if ($uri === '/api' || $uri === '/api/') {
     exit;
 }
 
-// Parse API (trigger via JSON, used internally)
-if ($uri === '/parse') {
-    set_time_limit(120);
-    session_write_close();
-    $start = microtime(true);
-    $cooldown = 600;
-    $pdo = getDb();
+// Import page — paste GIF URL to add
+if ($uri === '/import') {
+    require __DIR__ . '/handlers/parse.php';
+    $result = null;
 
-    $stmt = $pdo->prepare("SELECT meta_value FROM meta WHERE meta_key = 'parse_last_run'");
-    $stmt->execute();
-    $lastRun = (int)$stmt->fetchColumn();
-    $remaining = $cooldown - (time() - $lastRun);
-
-    if ($remaining > 0 && $lastRun > 0) {
-        header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'error' => 'cooldown', 'remaining' => $remaining]);
-        exit;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $gifUrl = $_POST['gif_url'] ?? '';
+        $title = $_POST['title'] ?? '';
+        $keywords = $_POST['keywords'] ?? '';
+        $result = importFromUrl($gifUrl, $title, $keywords);
     }
 
-    $stmt = $pdo->prepare("INSERT INTO meta (meta_key, meta_value) VALUES ('parse_last_run', ?) ON DUPLICATE KEY UPDATE meta_value = ?");
-    $stmt->execute([time(), time()]);
-
-    $before = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
-    autoPopulate(6, true);
-    $after = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
-
-    header('Content-Type: application/json');
-    echo json_encode([
-        'success' => true,
-        'imported' => $after - $before,
-        'total' => $after,
-        'time' => round(microtime(true) - $start, 1) . 's',
-    ]);
-    exit;
-}
-
-// Parse page (manual UI)
-if ($uri === '/parse-page') {
     $pdo = getDb();
-    $stmt = $pdo->prepare("SELECT meta_value FROM meta WHERE meta_key = 'parse_last_run'");
-    $stmt->execute();
-    $lastRun = (int)$stmt->fetchColumn();
-    $remaining = max(0, 600 - (time() - $lastRun));
-
-    // Handle POST: run import
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $remaining <= 0) {
-        set_time_limit(120);
-        session_write_close();
-
-        $stmt = $pdo->prepare("INSERT INTO meta (meta_key, meta_value) VALUES ('parse_last_run', ?) ON DUPLICATE KEY UPDATE meta_value = ?");
-        $stmt->execute([time(), time()]);
-
-        $before = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
-        autoPopulate(6, true);
-        $after = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
-        $imported = $after - $before;
-
-        session_start();
-        $_SESSION['parse_result'] = [
-            'success' => true,
-            'message' => $imported > 0 ? "Imported {$imported} new GIF" . ($imported !== 1 ? 's' : '') . " (total: {$after})" : "No new GIFs found (total: {$after})",
-        ];
-
-        header('Location: /parse-page');
-        exit;
-    }
-
     $totalGifs = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
-    $klipyCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'klipy%'")->fetchColumn();
-    $giphyCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'giphy%'")->fetchColumn();
-    require __DIR__ . '/templates/parse.php';
+    require __DIR__ . '/templates/import.php';
     exit;
 }
 

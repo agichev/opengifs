@@ -16,7 +16,7 @@
             <a href="/">Browse</a>
             <a href="/api">API</a>
             <a href="/rules">Rules</a>
-            <a href="/parse-page" style="background:rgba(255,255,255,0.1);">Import</a>
+            <a href="/import" style="background:rgba(255,255,255,0.1);">Import</a>
             <a href="/upload" class="upload-btn">+ Upload</a>
         </nav>
     </div>
