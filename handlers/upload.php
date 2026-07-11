@@ -77,6 +77,8 @@ function handleUpload(): void
         $proxyPath = bin2hex(random_bytes(12));
 
         $pdo = getDb();
+        // Use display_url (direct image URL), fallback to url
+        $imgbbUrl = $data['data']['display_url'] ?? $data['data']['url'];
         $stmt = $pdo->prepare("
             INSERT INTO gifs (title, keywords, original_name, imgbb_url, imgbb_delete_url, proxy_path, file_size, mime_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -85,7 +87,7 @@ function handleUpload(): void
             $title ?: null,
             $keywords ?: null,
             $file['name'],
-            $data['data']['url'],
+            $imgbbUrl,
             $data['data']['delete_url'] ?? null,
             $proxyPath,
             $data['data']['size'] ?? $file['size'],

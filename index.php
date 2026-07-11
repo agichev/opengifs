@@ -143,30 +143,21 @@ if (preg_match('#^/gif/([a-f0-9]+)$#', $uri, $m)) {
     exit;
 }
 
-// Proxy (serve GIF from imgBB, hiding real URL)
+// Proxy (redirect to imgBB direct URL, hiding upload page)
 if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
     $pdo = getDb();
-    $stmt = $pdo->prepare("SELECT id, imgbb_url, mime_type FROM gifs WHERE proxy_path = ?");
+    $stmt = $pdo->prepare("SELECT imgbb_url FROM gifs WHERE proxy_path = ?");
     $stmt->execute([$m[1]]);
     $gif = $stmt->fetch();
 
     if (!$gif) {
         http_response_code(404);
-        echo '<h1>404 — GIF not found</h1>';
+        echo '<h1>404</h1>';
         exit;
     }
 
-    header('Content-Type: image/gif');
-    header('Cache-Control: public, max-age=31536000, immutable');
-    header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
-    header('X-Proxy-By: OpenGifs');
-
-    $ctx = stream_context_create(['http' => ['timeout' => 30, 'follow_location' => true]]);
-    $ok = @readfile($gif['imgbb_url'], false, $ctx);
-    if ($ok === false) {
-        http_response_code(502);
-        echo '502';
-    }
+    $url = $gif['imgbb_url'];
+    header('Location: ' . $url, true, 302);
     exit;
 }
 
@@ -221,6 +212,29 @@ if ($uri === '/parse-page') {
     $stmt->execute();
     $lastRun = (int)$stmt->fetchColumn();
     $remaining = max(0, 600 - (time() - $lastRun));
+
+    // Handle POST: run import
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $remaining <= 0) {
+        set_time_limit(120);
+        session_write_close();
+
+        $stmt = $pdo->prepare("INSERT INTO meta (meta_key, meta_value) VALUES ('parse_last_run', ?) ON DUPLICATE KEY UPDATE meta_value = ?");
+        $stmt->execute([time(), time()]);
+
+        $before = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
+        autoPopulate(6, true);
+        $after = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
+        $imported = $after - $before;
+
+        session_start();
+        $_SESSION['parse_result'] = [
+            'success' => true,
+            'message' => $imported > 0 ? "Imported {$imported} new GIF" . ($imported !== 1 ? 's' : '') . " (total: {$after})" : "No new GIFs found (total: {$after})",
+        ];
+
+        header('Location: /parse-page');
+        exit;
+    }
 
     $totalGifs = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
     $klipyCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'klipy%'")->fetchColumn();
