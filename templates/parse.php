@@ -8,7 +8,7 @@ require __DIR__ . '/header.php';
 
 <div style="background:#fff;border:1px solid #d0d8e8;border-radius:8px;padding:30px;box-shadow:0 1px 4px rgba(0,0,0,0.08);max-width:500px;margin:0 auto;text-align:center;">
     <p style="font-size:14px;color:#555;margin-bottom:24px;line-height:1.7;">
-        Automatically fetch trending GIFs from GIPHY and Pixabay.<br>
+        Automatically fetch trending GIFs from Klipy and GIPHY.<br>
         New GIFs are uploaded to ImgBB and added to the library.
     </p>
 
@@ -28,8 +28,8 @@ require __DIR__ . '/header.php';
             <div style="font-size:11px;color:#888;">GIPHY</div>
         </div>
         <div style="background:#e8f0fe;border-radius:6px;padding:12px;">
-            <div style="font-size:22px;font-weight:bold;color:#2a5f9e;"><?= (int)$pixCount ?></div>
-            <div style="font-size:11px;color:#888;">Pixabay</div>
+            <div style="font-size:22px;font-weight:bold;color:#2a5f9e;"><?= (int)$klipyCount ?></div>
+            <div style="font-size:11px;color:#888;">Klipy</div>
         </div>
     </div>
 </div>

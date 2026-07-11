@@ -5,7 +5,7 @@ function autoPopulate(int $count = 6, bool $force = false): void
     $pdo = getDb();
     $imgbbKey = env('IMGBB_API_KEY');
     $giphyKey = env('GIPHY_API_KEY');
-    $pixabayKey = env('PIXABAY_API_KEY');
+    $klipyKey = env('KLIPY_API_KEY');
 
     if (!$imgbbKey) return;
 
@@ -16,41 +16,46 @@ function autoPopulate(int $count = 6, bool $force = false): void
 
     $sources = [];
 
-    // ── 1. PIXABAY (5000 req/h) — search with "gif" suffix, image_type=all ──
-    if ($pixabayKey) {
-        $pixQueries = ['funny gif', 'cat gif', 'dance gif', 'animals gif', 'reaction gif', 'happy gif',
-                       'baby gif', 'dog gif', 'love gif', 'party gif', 'celebration gif', 'sport gif',
-                       'music gif', 'fail gif', 'cute gif'];
-        shuffle($pixQueries);
+    // ── 1. KLIPY ──
+    if ($klipyKey) {
+        $queries = ['funny', 'cat', 'dance', 'animals', 'reaction', 'happy', 'love', 'fail', 'cute', 'baby', 'dog', 'party', 'celebration', 'sport', 'music'];
+        shuffle($queries);
         $used = 0;
 
-        foreach ($pixQueries as $q) {
-            if ($used >= 4) break;
+        foreach ($queries as $q) {
+            if ($used >= 3) break;
 
-            $resp = @file_get_contents("https://pixabay.com/api/?key={$pixabayKey}&q=" . urlencode($q) . "&image_type=all&per_page=30&safesearch=true&order=popular");
-            if (!$resp) continue;
+            $ch = curl_init("https://api.klipy.com/api/v1/search?query=" . urlencode($q) . "&page=1&per_page=20");
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_HTTPHEADER => ['Origin: https://klipy.co', 'Referer: https://klipy.co/'],
+            ]);
+            $resp = curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
+            if ($code !== 200 || !$resp) continue;
             $data = json_decode($resp, true);
-            if (empty($data['hits'])) continue;
+            if (empty($data['data'])) continue;
             $used++;
 
-            foreach ($data['hits'] as $img) {
-                $url = $img['webformatURL'] ?? '';
-                if (!$url) continue;
+            foreach ($data['data'] as $item) {
+                $gifUrl = $item['media']['gif']['url'] ?? $item['media']['mp4']['url'] ?? null;
+                if (!$gifUrl) continue;
 
-                // Don't filter by extension — download and check MIME
-                $tags = $img['tags'] ?? $q;
+                $tags = is_array($item['tags'] ?? null) ? implode(', ', array_slice($item['tags'], 0, 6)) : $q;
                 $sources[] = [
-                    'url' => $url,
-                    'type' => 'pixabay',
-                    'title' => ($img['user'] ?? 'Pixabay') . ' — ' . str_replace(' gif', '', $q),
-                    'keywords' => 'pixabay, ' . str_replace(', ', ', ', $tags),
+                    'url' => $gifUrl,
+                    'type' => 'klipy',
+                    'title' => $item['title'] ?? $q,
+                    'keywords' => 'klipy, ' . $tags,
                 ];
             }
         }
     }
 
-    // ── 2. GIPHY (100 req/h) — trending + search ──
+    // ── 2. GIPHY (trending only, 100 req/h) ──
     if ($giphyKey) {
         $resp = @file_get_contents("https://api.giphy.com/v1/gifs/trending?api_key={$giphyKey}&limit={$count}&rating=g");
         if ($resp) {
@@ -64,26 +69,6 @@ function autoPopulate(int $count = 6, bool $force = false): void
                     'keywords' => 'giphy' . ($g['slug'] ? ', ' . $g['slug'] : ''),
                 ];
             }
-        }
-
-        $searchTerms = ['funny', 'cat', 'dance', 'animals', 'reaction', 'happy', 'love', 'fail', 'cute'];
-        shuffle($searchTerms);
-        $searched = 0;
-        foreach (array_unique($searchTerms) as $q) {
-            if ($searched >= 2) break;
-            $resp = @file_get_contents("https://api.giphy.com/v1/gifs/search?api_key={$giphyKey}&q=" . urlencode($q) . "&limit={$count}&rating=g&offset=" . rand(0, 20));
-            if (!$resp) continue;
-            $data = json_decode($resp, true);
-            foreach ($data['data'] ?? [] as $g) {
-                $gifUrl = $g['images']['original']['url'] ?? null;
-                if (!$gifUrl) continue;
-                $sources[] = [
-                    'url' => $gifUrl, 'type' => 'giphy',
-                    'title' => $g['title'] ?: $q,
-                    'keywords' => 'giphy, ' . $q . ($g['slug'] ? ', ' . $g['slug'] : ''),
-                ];
-            }
-            $searched++;
         }
     }
 
@@ -101,7 +86,7 @@ function autoPopulate(int $count = 6, bool $force = false): void
         $ch = curl_init($src['url']);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 15,
+            CURLOPT_TIMEOUT => 20,
             CURLOPT_FOLLOWLOCATION => true,
         ]);
         $data = curl_exec($ch);
@@ -118,9 +103,9 @@ function autoPopulate(int $count = 6, bool $force = false): void
         $ch = curl_init('https://api.imgbb.com/1/upload');
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => ['key' => $imgbbKey, 'image' => $imageData, 'name' => 'opengifs_' . time()],
+            CURLOPT_POSTFIELDS => ['key' => $imgbbKey, 'image' => $imageData, 'name' => 'og_' . time()],
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 30,
+            CURLOPT_TIMEOUT => 60,
         ]);
         $resp = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -128,14 +113,15 @@ function autoPopulate(int $count = 6, bool $force = false): void
         if ($httpCode !== 200) continue;
 
         $up = json_decode($resp, true);
-        if (!($up['data']['url'] ?? null)) continue;
+        $imgbbUrl = $up['data']['display_url'] ?? $up['data']['url'] ?? null;
+        if (!$imgbbUrl) continue;
 
         $stmt = $pdo->prepare("INSERT INTO gifs (title, keywords, original_name, imgbb_url, imgbb_delete_url, source_url, proxy_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
             mb_substr($src['title'], 0, 255),
             mb_substr($src['keywords'], 0, 500),
             'auto_' . time() . '.gif',
-            $up['data']['url'],
+            $imgbbUrl,
             $up['data']['delete_url'] ?? null,
             $src['url'],
             bin2hex(random_bytes(12)),

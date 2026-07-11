@@ -156,29 +156,17 @@ if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
         exit;
     }
 
-    $ch = curl_init($gif['imgbb_url']);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_USERAGENT => 'Mozilla/5.0',
-    ]);
-    $body = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($httpCode !== 200) {
-        http_response_code(502);
-        echo '<h1>502 — Failed to fetch GIF</h1>';
-        exit;
-    }
-
-    header('Content-Type: ' . ($gif['mime_type'] ?: 'image/gif'));
-    header('Content-Length: ' . strlen($body));
+    header('Content-Type: image/gif');
     header('Cache-Control: public, max-age=31536000, immutable');
     header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
     header('X-Proxy-By: OpenGifs');
-    echo $body;
+
+    $ctx = stream_context_create(['http' => ['timeout' => 30, 'follow_location' => true]]);
+    $ok = @readfile($gif['imgbb_url'], false, $ctx);
+    if ($ok === false) {
+        http_response_code(502);
+        echo '502';
+    }
     exit;
 }
 
@@ -192,8 +180,10 @@ if ($uri === '/api' || $uri === '/api/') {
 
 // Parse API (trigger auto-populate via JSON)
 if ($uri === '/parse') {
+    set_time_limit(120);
+    session_write_close();
     $start = microtime(true);
-    $cooldown = 600; // 10 minutes
+    $cooldown = 600;
     $pdo = getDb();
 
     $stmt = $pdo->prepare("SELECT meta_value FROM meta WHERE meta_key = 'parse_last_run'");
@@ -211,16 +201,15 @@ if ($uri === '/parse') {
     $stmt->execute([time(), time()]);
 
     $before = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
-    autoPopulate(12, true);
+    autoPopulate(6, true);
     $after = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
-    $elapsed = round(microtime(true) - $start, 2);
 
     header('Content-Type: application/json');
     echo json_encode([
         'success' => true,
         'imported' => $after - $before,
         'total' => $after,
-        'time' => $elapsed . 's',
+        'time' => round(microtime(true) - $start, 1) . 's',
     ]);
     exit;
 }
@@ -234,7 +223,7 @@ if ($uri === '/parse-page') {
     $remaining = max(0, 600 - (time() - $lastRun));
 
     $totalGifs = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
-    $pixCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'pixabay%'")->fetchColumn();
+    $klipyCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'klipy%'")->fetchColumn();
     $giphyCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'giphy%'")->fetchColumn();
     require __DIR__ . '/templates/parse.php';
     exit;
