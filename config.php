@@ -37,7 +37,9 @@ function getDb(): PDO
             $port = env('DB_PORT', '3306');
             $user = env('DB_USERNAME', 'root');
             $pass = env('DB_PASSWORD', '');
-            $name = env('DB_DATABASE', 'opengifs');
+            // Most MySQL hosts create a DB named after the user
+            // Try DB_NAME first, then DB_DATABASE, fallback to username
+            $name = env('DB_NAME', env('DB_DATABASE', $user));
         }
 
         $dsn = "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4";

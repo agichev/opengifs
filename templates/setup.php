@@ -30,7 +30,7 @@
         <p>OpenGifs could not connect to the database.</p>
         <p>Set these environment variables in your hosting dashboard:</p>
         <p>
-            <code>DB_HOST</code>, <code>DB_PORT</code>, <code>DB_DATABASE</code>,<br>
+            <code>DB_HOST</code>, <code>DB_PORT</code>, <code>DB_NAME</code>,<br>
             <code>DB_USERNAME</code>, <code>DB_PASSWORD</code>,<br>
             <code>IMGBB_API_KEY</code>
         </p>
@@ -43,6 +43,7 @@
                 <strong>Error:</strong> <?= htmlspecialchars($error) ?><br><br>
                 <strong>DB_HOST:</strong> <?= htmlspecialchars(env('DB_HOST', '(not set)')) ?><br>
                 <strong>DB_PORT:</strong> <?= htmlspecialchars(env('DB_PORT', '(not set)')) ?><br>
+                <strong>DB_NAME:</strong> <?= htmlspecialchars(env('DB_NAME', '(not set)')) ?><br>
                 <strong>DB_DATABASE:</strong> <?= htmlspecialchars(env('DB_DATABASE', '(not set)')) ?><br>
                 <strong>DB_USERNAME:</strong> <?= htmlspecialchars(env('DB_USERNAME', '(not set)')) ?><br>
                 <strong>DB_PASSWORD:</strong> <?= env('DB_PASSWORD') ? '********' : '(not set)' ?><br>
