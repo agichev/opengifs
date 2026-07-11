@@ -2,13 +2,12 @@
 /**
  * OpenGifs Parser — CLI
  *
- * Uses Pixabay (5000 req/h) to discover trending topics,
- * then fetches actual GIFs from GIPHY (100 req/h).
+ * Sources:
+ *   Pixabay (5000 req/h) — real GIFs via q=<keyword>+gif&image_type=all
+ *   GIPHY   (100 req/h)  — trending + search with random offset
  *
- * Usage:
- *   php scripts/parser.php [--dry-run] [--count=20]
- *
- * Env: IMGBB_API_KEY, GIPHY_API_KEY, PIXABAY_API_KEY
+ * Usage: php scripts/parser.php [--dry-run] [--count=20]
+ * Env:   IMGBB_API_KEY, GIPHY_API_KEY, PIXABAY_API_KEY
  */
 
 require __DIR__ . '/../config.php';
@@ -28,7 +27,7 @@ $pixabayKey = env('PIXABAY_API_KEY');
 
 if (!$imgbbKey) { echo "ERROR: IMGBB_API_KEY not set\n"; exit(1); }
 
-function importGif(string $url, string $title, string $keywords): bool
+function importGif(string $url, string $title, string $keywords, string $source): bool
 {
     global $pdo, $imgbbKey, $dryRun;
 
@@ -59,7 +58,7 @@ function importGif(string $url, string $title, string $keywords): bool
     $resp = curl_exec($ch);
     $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    if ($http !== 200) { echo "FAILED\n"; return false; }
+    if ($http !== 200) { echo "FAILED (HTTP $http)\n"; return false; }
 
     $up = json_decode($resp, true);
     if (!($up['data']['url'] ?? null)) { echo "FAILED (bad response)\n"; return false; }
@@ -78,98 +77,92 @@ function importGif(string $url, string $title, string $keywords): bool
     return true;
 }
 
-// ─── Step 1: Pixabay → discover topics ──────────────────
+// ─── PIXABAY ─────────────────────────────────────────────
 
-echo "\n=== Pixabay: discovering topics ===\n";
-$topics = [];
+echo "\n=== Pixabay GIFs ===\n";
+$pixCount = 0;
 
 if ($pixabayKey) {
-    // Editors choice (trending)
-    $resp = @file_get_contents("https://pixabay.com/api/?key={$pixabayKey}&per_page=50&safesearch=true&order=popular&editors_choice=true");
-    if ($resp) {
+    $queries = ['funny gif', 'cat gif', 'dance gif', 'animals gif', 'reaction gif', 'happy gif',
+                'baby gif', 'dog gif', 'love gif', 'party gif', 'celebration gif', 'sport gif',
+                'music gif', 'fail gif', 'cute gif', 'thank you gif', 'wow gif', 'omg gif'];
+    shuffle($queries);
+
+    foreach ($queries as $q) {
+        if ($pixCount >= $count) break;
+        echo "  [{$q}] ";
+        $resp = @file_get_contents("https://pixabay.com/api/?key={$pixabayKey}&q=" . urlencode($q) . "&image_type=all&per_page=50&safesearch=true&order=popular");
+        if (!$resp) { echo "FAILED\n"; continue; }
         $data = json_decode($resp, true);
+        $found = 0;
         foreach ($data['hits'] ?? [] as $img) {
-            foreach (explode(', ', $img['tags'] ?? '') as $t) {
-                $t = trim($t);
-                if (strlen($t) > 2 && strlen($t) < 30) $topics[$t] = ($topics[$t] ?? 0) + 1;
+            if ($pixCount >= $count) break;
+            $url = $img['webformatURL'] ?? '';
+            $ext = strtolower(pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
+            if ($ext !== 'gif') continue;
+            $tags = $img['tags'] ?? $q;
+            if (importGif($url, ($img['user'] ?? 'Pixabay') . ' — ' . str_replace(' gif', '', $q),
+                          'pixabay, ' . str_replace(', ', ', ', $tags), 'pixabay')) {
+                $pixCount++;
+                $found++;
+                sleep(1);
             }
         }
+        echo "$found imported\n";
     }
-
-    // Category-specific
-    foreach (['animals', 'sports', 'music', 'food', 'nature', 'people', 'feelings', 'travel'] as $cat) {
-        $resp = @file_get_contents("https://pixabay.com/api/?key={$pixabayKey}&category={$cat}&per_page=20&safesearch=true&order=popular");
-        if (!$resp) continue;
-        $data = json_decode($resp, true);
-        foreach ($data['hits'] ?? [] as $img) {
-            foreach (explode(', ', $img['tags'] ?? '') as $t) {
-                $t = trim($t);
-                if (strlen($t) > 2 && strlen($t) < 30) $topics[$t] = ($topics[$t] ?? 0) + 1;
-            }
-        }
-    }
-
-    echo "  Found " . count($topics) . " unique topics\n";
+    echo "  Pixabay total: $pixCount\n";
 } else {
-    // Fallback topics if no Pixabay key
-    $topics = ['funny', 'cat', 'dance', 'animals', 'reaction', 'happy', 'fail', 'celebration'];
-    foreach ($topics as $t) $topics[$t] = 1;
+    echo "  Skipped (no API key)\n";
 }
 
-// ─── Step 2: GIPHY → fetch GIFs by topic ────────────────
+// ─── GIPHY ───────────────────────────────────────────────
 
-echo "\n=== GIPHY: fetching GIFs ===\n";
-$imported = 0;
+echo "\n=== GIPHY ===\n";
+$giphyCount = 0;
 
-if (!$giphyKey) {
-    echo "  ERROR: GIPHY_API_KEY not set\n";
-    exit(1);
-}
+if (!$giphyKey) { echo "  ERROR: GIPHY_API_KEY not set\n"; exit(1); }
 
-// Always fetch trending first
+// Trending
 echo "  [trending] ";
 $resp = @file_get_contents("https://api.giphy.com/v1/gifs/trending?api_key={$giphyKey}&limit={$count}&rating=g");
 if ($resp) {
     $data = json_decode($resp, true);
-    $gifCount = 0;
     foreach ($data['data'] ?? [] as $g) {
         $url = $g['images']['original']['url'] ?? null;
         if (!$url) continue;
-        $slug = $g['slug'] ?? '';
-        if (importGif($url, $g['title'] ?: 'GIPHY GIF', 'giphy, ' . $slug)) {
-            $imported++; $gifCount++;
+        if (importGif($url, $g['title'] ?: 'GIPHY GIF', 'giphy' . ($g['slug'] ? ', ' . $g['slug'] : ''), 'giphy')) {
+            $giphyCount++;
             sleep(1);
         }
     }
-    echo "$gifCount imported\n";
-} else {
-    echo "FAILED\n";
+    echo "$giphyCount imported\n";
 }
 
-// Search by topics
-arsort($topics);
-$searched = 0;
-foreach (array_keys($topics) as $topic) {
-    if ($imported >= $count) break;
-    if ($searched >= 5) break;
+// Search
+$searches = ['cat', 'dance', 'funny', 'happy', 'reaction', 'fail', 'cute', 'love', 'baby', 'dog'];
+shuffle($searches);
+$searchCnt = 0;
 
-    echo "  [{$topic}] ";
-    $resp = @file_get_contents("https://api.giphy.com/v1/gifs/search?api_key={$giphyKey}&q=" . urlencode($topic) . "&limit={$count}&rating=g");
+foreach (array_unique($searches) as $q) {
+    if ($giphyCount >= $count) break;
+    if ($searchCnt >= 3) break;
+    echo "  [{$q}] ";
+    $resp = @file_get_contents("https://api.giphy.com/v1/gifs/search?api_key={$giphyKey}&q=" . urlencode($q) . "&limit=" . ($count - $giphyCount) . "&rating=g&offset=" . rand(0, 30));
     if (!$resp) { echo "FAILED\n"; continue; }
-
     $data = json_decode($resp, true);
-    $gifCount = 0;
+    $found = 0;
     foreach ($data['data'] ?? [] as $g) {
-        if ($imported >= $count) break;
+        if ($giphyCount >= $count) break;
         $url = $g['images']['original']['url'] ?? null;
         if (!$url) continue;
-        if (importGif($url, $g['title'] ?: $topic, 'giphy, ' . $topic)) {
-            $imported++; $gifCount++;
+        if (importGif($url, $g['title'] ?: $q, 'giphy, ' . $q . ($g['slug'] ? ', ' . $g['slug'] : ''), 'giphy')) {
+            $giphyCount++;
+            $found++;
             sleep(1);
         }
     }
-    echo "$gifCount imported\n";
-    $searched++;
+    echo "$found imported\n";
+    $searchCnt++;
 }
 
-echo "\nDone. Imported: $imported\n";
+echo "\nDone. Pixabay: $pixCount | GIPHY: $giphyCount | Total: " . ($pixCount + $giphyCount) . "\n";
