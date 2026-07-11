@@ -6,7 +6,7 @@ require __DIR__ . '/header.php';
 <div class="gif-single">
     <h1><?= htmlspecialchars($gif['title'] ?? 'Untitled GIF') ?></h1>
 
-    <img src="/g/<?= htmlspecialchars($gif['proxy_path']) ?>" alt="<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>">
+    <img src="/g/<?= htmlspecialchars($gif['proxy_path']) ?>" alt="<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>" fetchpriority="high">
 
     <div class="gif-details">
         <?php if (!empty($gif['keywords'])): ?>

@@ -102,6 +102,40 @@ for gif in r.json()['data']:
         <li><code>created_at</code> — ISO 8601 timestamp</li>
     </ul>
 
+    <h2>Live API Tester</h2>
+    <p>Test the API directly from your browser.</p>
+
+    <div style="background:#f5f7fa;border:1px solid #d0d8e8;border-radius:6px;padding:16px;margin-top:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <select id="apiEndpoint" style="padding:8px;border:2px solid #c0c8d8;border-radius:4px;font-size:14px;flex:1;min-width:200px;">
+                <option value="/api/v1/gifs/latest?limit=3">GET /api/v1/gifs/latest</option>
+                <option value="/api/v1/gifs/trending?limit=3">GET /api/v1/gifs/trending</option>
+                <option value="/api/v1/gifs/random">GET /api/v1/gifs/random</option>
+                <option value="/api/v1/gifs/search?q=cat&limit=3">GET /api/v1/gifs/search?q=cat</option>
+                <option value="/api/v1/gifs/1">GET /api/v1/gifs/1</option>
+            </select>
+            <button id="apiSendBtn" style="padding:8px 20px;background:linear-gradient(to bottom,#4a90d9,#357abd);border:2px solid #2a5f9e;border-radius:4px;color:#fff;font-weight:bold;cursor:pointer;">Send</button>
+        </div>
+        <pre id="apiResponse" style="background:#1e1e2e;color:#cdd6f4;border-radius:4px;padding:14px;overflow-x:auto;font-size:13px;min-height:60px;margin:0;">Click "Send" to test the API.</pre>
+    </div>
+
+    <script>
+    document.getElementById('apiSendBtn').addEventListener('click', function() {
+        var endpoint = document.getElementById('apiEndpoint').value;
+        var pre = document.getElementById('apiResponse');
+        pre.textContent = 'Loading...';
+
+        fetch(endpoint)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                pre.textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(function(err) {
+                pre.textContent = 'Error: ' + err.message;
+            });
+    });
+    </script>
+
     <p style="margin-top:40px;color:#888;font-size:13px;border-top:1px solid #e0e8f0;padding-top:20px;">
         OpenGifs API v1 — No key required. Free for everyone.
     </p>

@@ -10,6 +10,11 @@ try {
     exit;
 }
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params(['lifetime' => 86400, 'samesite' => 'Lax']);
+    session_start();
+}
+
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $uri = rtrim($uri, '/') ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -113,8 +118,13 @@ if (preg_match('#^/gif/([a-f0-9]+)$#', $uri, $m)) {
         exit;
     }
 
-    $pdo->prepare("UPDATE gifs SET views = views + 1 WHERE id = ?")->execute([$gif['id']]);
-    $gif['views']++;
+    $viewed = $_SESSION['viewed_gifs'] ?? [];
+    if (!in_array($gif['id'], $viewed)) {
+        $pdo->prepare("UPDATE gifs SET views = views + 1 WHERE id = ?")->execute([$gif['id']]);
+        $viewed[] = $gif['id'];
+        $_SESSION['viewed_gifs'] = $viewed;
+        $gif['views']++;
+    }
 
     $stmt = $pdo->prepare("SELECT * FROM gifs WHERE id != ? ORDER BY created_at DESC LIMIT 12");
     $stmt->execute([$gif['id']]);
@@ -159,6 +169,7 @@ if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
     header('Content-Type: ' . ($gif['mime_type'] ?: 'image/gif'));
     header('Content-Length: ' . strlen($body));
     header('Cache-Control: public, max-age=31536000, immutable');
+    header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
     header('X-Proxy-By: OpenGifs');
     echo $body;
     exit;
