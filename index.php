@@ -137,7 +137,7 @@ if (preg_match('#^/gif/([a-f0-9]+)$#', $uri, $m)) {
 }
 
 // Proxy (serve GIF through our server, hiding real imgBB URL)
-if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
+if (preg_match('#^/g/([a-f0-9]+)(?:\.gif)?$#', $uri, $m)) {
     $pdo = getDb();
     $stmt = $pdo->prepare("SELECT imgbb_url FROM gifs WHERE proxy_path = ?");
     $stmt->execute([$m[1]]);

@@ -9,7 +9,7 @@ require __DIR__ . '/header.php';
     <div class="gif-grid">
         <?php foreach ($gifs as $gif): ?>
             <a href="/gif/<?= htmlspecialchars($gif['proxy_path']) ?>" class="gif-card">
-                <img src="/g/<?= htmlspecialchars($gif['proxy_path']) ?>" alt="<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>" loading="lazy" decoding="async">
+                <img src="/g/<?= htmlspecialchars($gif['proxy_path']) ?>.gif" alt="<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>" loading="lazy" decoding="async">
                 <div class="gif-info">
                     <div class="gif-title"><?= htmlspecialchars($gif['title'] ?? 'Untitled') ?></div>
                     <div class="gif-meta"><?= (int)$gif['views'] ?> views</div>

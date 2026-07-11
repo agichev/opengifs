@@ -77,7 +77,7 @@ function formatGif(array $gif): array
         'title' => $gif['title'],
         'keywords' => $gif['keywords'] ? explode(',', $gif['keywords']) : [],
         'url' => $base . '/gif/' . $gif['proxy_path'],
-        'gif_url' => $base . '/g/' . $gif['proxy_path'],
+        'gif_url' => $base . '/g/' . $gif['proxy_path'] . '.gif',
         'file_size' => (int)$gif['file_size'],
         'views' => (int)$gif['views'],
         'created_at' => date('c', strtotime($gif['created_at'])),
