@@ -68,7 +68,7 @@ function handleUpload(): void
 
         $data = json_decode($response, true);
 
-        if (!($data['data']['url'] ?? null)) {
+        if (!($data['data']['display_url'] ?? $data['data']['url'] ?? null)) {
             $error = 'Invalid response from image host.';
             require __DIR__ . '/../templates/upload.php';
             return;
@@ -77,7 +77,6 @@ function handleUpload(): void
         $proxyPath = bin2hex(random_bytes(12));
 
         $pdo = getDb();
-        // Use display_url (direct image URL), fallback to url
         $imgbbUrl = $data['data']['display_url'] ?? $data['data']['url'];
         $stmt = $pdo->prepare("
             INSERT INTO gifs (title, keywords, original_name, imgbb_url, imgbb_delete_url, proxy_path, file_size, mime_type)
