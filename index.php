@@ -176,6 +176,8 @@ if (preg_match('#^/g/([a-f0-9]+)(?:\.gif)?$#', $uri, $m)) {
     header('Content-Length: ' . strlen($data));
     header('Cache-Control: public, max-age=31536000');
     header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
+    header('Content-Disposition: inline');
+    header('Accept-Ranges: bytes');
     echo $data;
     exit;
 }

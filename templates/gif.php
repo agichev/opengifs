@@ -10,10 +10,14 @@ require __DIR__ . '/header.php';
 <meta property="og:description" content="View on OpenGifs — Free GIF hosting">
 <meta property="og:image" content="<?= $gifUrlGif ?>">
 <meta property="og:image:type" content="image/gif">
+<meta property="og:image:width" content="480">
+<meta property="og:image:height" content="270">
 <meta property="og:url" content="<?= $gifPage ?>">
 <meta property="og:type" content="website">
 <meta property="og:video" content="<?= $gifUrlGif ?>">
 <meta property="og:video:type" content="image/gif">
+<meta property="og:video:width" content="480">
+<meta property="og:video:height" content="270">
 <meta property="og:video:secure_url" content="<?= $gifUrlGif ?>">
 <meta name="twitter:card" content="player">
 <meta name="twitter:title" content="<?= $gifTitle ?>">
@@ -21,6 +25,8 @@ require __DIR__ . '/header.php';
 <meta name="twitter:player" content="<?= $gifUrlGif ?>">
 <meta name="twitter:player:width" content="480">
 <meta name="twitter:player:height" content="270">
+<meta name="twitter:player:stream" content="<?= $gifUrlGif ?>">
+<meta name="twitter:player:stream:content_type" content="image/gif">
 
 <div class="gif-single">
     <h1><?= htmlspecialchars($gif['title'] ?? 'Untitled GIF') ?></h1>
