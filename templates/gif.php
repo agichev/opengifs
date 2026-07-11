@@ -1,30 +1,31 @@
 <?php
 $pageTitle = $gif['title'] ?? 'GIF';
-$gifUrl = $baseUrl . '/g/' . $gif['proxy_path'] . '.gif';
+$gifUrl = $baseUrl . '/g/' . $gif['proxy_path'];
+$gifUrlGif = $gifUrl . '.gif';
 $gifPage = $baseUrl . '/gif/' . $gif['proxy_path'];
 $gifTitle = htmlspecialchars($gif['title'] ?? 'OpenGifs GIF');
 require __DIR__ . '/header.php';
 ?>
 <meta property="og:title" content="<?= $gifTitle ?>">
 <meta property="og:description" content="View on OpenGifs — Free GIF hosting">
-<meta property="og:image" content="<?= $gifUrl ?>">
+<meta property="og:image" content="<?= $gifUrlGif ?>">
 <meta property="og:image:type" content="image/gif">
 <meta property="og:url" content="<?= $gifPage ?>">
 <meta property="og:type" content="website">
-<meta property="og:video" content="<?= $gifUrl ?>">
+<meta property="og:video" content="<?= $gifUrlGif ?>">
 <meta property="og:video:type" content="image/gif">
-<meta property="og:video:secure_url" content="<?= $gifUrl ?>">
+<meta property="og:video:secure_url" content="<?= $gifUrlGif ?>">
 <meta name="twitter:card" content="player">
 <meta name="twitter:title" content="<?= $gifTitle ?>">
-<meta name="twitter:image" content="<?= $gifUrl ?>">
-<meta name="twitter:player" content="<?= $gifUrl ?>">
+<meta name="twitter:image" content="<?= $gifUrlGif ?>">
+<meta name="twitter:player" content="<?= $gifUrlGif ?>">
 <meta name="twitter:player:width" content="480">
 <meta name="twitter:player:height" content="270">
 
 <div class="gif-single">
     <h1><?= htmlspecialchars($gif['title'] ?? 'Untitled GIF') ?></h1>
 
-    <img src="/g/<?= htmlspecialchars($gif['proxy_path']) ?>.gif" alt="<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>" fetchpriority="high">
+    <img src="/g/<?= htmlspecialchars($gif['proxy_path']) ?>" alt="<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>" fetchpriority="high">
 
     <div class="gif-details">
         <?php if (!empty($gif['keywords'])): ?>
@@ -45,7 +46,7 @@ require __DIR__ . '/header.php';
 
     <div class="direct-link-box">
         <label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px;">Direct GIF URL (proxied):</label>
-        <input type="text" value="<?= $baseUrl ?>/g/<?= htmlspecialchars($gif['proxy_path']) ?>.gif" readonly onclick="this.select()">
+        <input type="text" value="<?= $baseUrl ?>/g/<?= htmlspecialchars($gif['proxy_path']) ?>" readonly onclick="this.select()">
     </div>
 
     <div class="direct-link-box">
@@ -55,17 +56,17 @@ require __DIR__ . '/header.php';
 
     <div class="direct-link-box" style="background:#fff8e0;border-color:#e8d8a0;">
         <label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px;">HTML embed code:</label>
-        <input type="text" value="&lt;img src=&quot;<?= $baseUrl ?>/g/<?= htmlspecialchars($gif['proxy_path']) ?>.gif&quot; alt=&quot;<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>&quot;&gt;" readonly onclick="this.select()">
+        <input type="text" value="&lt;img src=&quot;<?= $baseUrl ?>/g/<?= htmlspecialchars($gif['proxy_path']) ?>&quot; alt=&quot;<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>&quot;&gt;" readonly onclick="this.select()">
     </div>
 
     <div class="direct-link-box" style="background:#e8f8f0;border-color:#a0d8b0;">
         <label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px;">Markdown embed code:</label>
-        <input type="text" value="![<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>](<?= $baseUrl ?>/g/<?= htmlspecialchars($gif['proxy_path']) ?>.gif)" readonly onclick="this.select()">
+        <input type="text" value="![<?= htmlspecialchars($gif['title'] ?? 'GIF') ?>](<?= $baseUrl ?>/g/<?= htmlspecialchars($gif['proxy_path']) ?>)" readonly onclick="this.select()">
     </div>
 
     <div class="direct-link-box" style="background:#f8f0e8;border-color:#d8c0a0;">
         <label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px;">BBCode embed (forums):</label>
-        <input type="text" value="[img]<?= $baseUrl ?>/g/<?= htmlspecialchars($gif['proxy_path']) ?>.gif[/img]" readonly onclick="this.select()">
+        <input type="text" value="[img]<?= $baseUrl ?>/g/<?= htmlspecialchars($gif['proxy_path']) ?>[/img]" readonly onclick="this.select()">
     </div>
 </div>
 
@@ -74,7 +75,7 @@ require __DIR__ . '/header.php';
     <div class="gif-grid">
         <?php foreach ($related as $rgif): ?>
             <a href="/gif/<?= htmlspecialchars($rgif['proxy_path']) ?>" class="gif-card">
-                <img src="/g/<?= htmlspecialchars($rgif['proxy_path']) ?>.gif" alt="<?= htmlspecialchars($rgif['title'] ?? 'GIF') ?>" loading="lazy">
+                <img src="/g/<?= htmlspecialchars($rgif['proxy_path']) ?>" alt="<?= htmlspecialchars($rgif['title'] ?? 'GIF') ?>" loading="lazy">
                 <div class="gif-info">
                     <div class="gif-title"><?= htmlspecialchars($rgif['title'] ?? 'Untitled') ?></div>
                     <div class="gif-meta"><?= (int)$rgif['views'] ?> views</div>

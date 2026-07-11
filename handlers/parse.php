@@ -62,7 +62,7 @@ function importFromUrl(string $url, string $title, string $keywords): string
     }
 
     $up = json_decode($resp, true);
-    $imgbbUrl = $up['data']['display_url'] ?? $up['data']['url'] ?? null;
+    $imgbbUrl = $up['data']['url'] ?? null;
     if (!$imgbbUrl) {
         return 'Invalid response from image host.';
     }
