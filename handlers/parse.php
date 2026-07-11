@@ -12,62 +12,80 @@ function autoPopulate(int $count = 6): void
     $total = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
     if ($total >= 10) return;
 
-    $sources = [];
+    $keywords = [];
 
-    // ── GIPHY (100 req/h, use limit=50 → 50 GIFs per call) ──
-    if ($giphyKey) {
-        $resp = @file_get_contents("https://api.giphy.com/v1/gifs/trending?api_key={$giphyKey}&limit={$count}&rating=g");
+    // ── Pixabay: get trending topics (5000 req/h, use freely) ──
+    if ($pixabayKey) {
+        // Get recent popular images across categories to extract keywords
+        $resp = @file_get_contents("https://pixabay.com/api/?key={$pixabayKey}&per_page=50&safesearch=true&order=popular&editors_choice=true");
         if ($resp) {
             $data = json_decode($resp, true);
-            foreach ($data['data'] ?? [] as $g) {
-                $url = $g['images']['original']['url'] ?? null;
-                if ($url) {
-                    $tags = is_array($g['tags'] ?? null) ? $g['tags'] : [];
-                    $slug = $g['slug'] ?? '';
-                    $keywords = 'giphy' . ($tags ? ', ' . implode(', ', array_slice($tags, 0, 6)) : '') . ($slug ? ', ' . $slug : '');
-                    $sources[] = ['url' => $url, 'title' => $g['title'] ?: 'GIF', 'keywords' => $keywords];
+            foreach ($data['hits'] ?? [] as $img) {
+                $tags = explode(', ', $img['tags'] ?? '');
+                foreach ($tags as $t) {
+                    $t = trim($t);
+                    if (strlen($t) > 2 && strlen($t) < 30) {
+                        $keywords[$t] = ($keywords[$t] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+
+        // Also search specific categories to get fresh topics
+        $cats = ['animals', 'sports', 'music', 'food', 'nature', 'people', 'feelings', 'travel'];
+        foreach ($cats as $cat) {
+            $resp = @file_get_contents("https://pixabay.com/api/?key={$pixabayKey}&category={$cat}&per_page=20&safesearch=true&order=popular");
+            if (!$resp) continue;
+            $data = json_decode($resp, true);
+            foreach ($data['hits'] ?? [] as $img) {
+                $tags = explode(', ', $img['tags'] ?? '');
+                foreach ($tags as $t) {
+                    $t = trim($t);
+                    if (strlen($t) > 2 && strlen($t) < 30) {
+                        $keywords[$t] = ($keywords[$t] ?? 0) + 1;
+                    }
                 }
             }
         }
     }
 
-    // ── PIXABAY (5000 req/h) ──
-    if ($pixabayKey) {
-        $pixabayQueries = ['funny', 'cat', 'dance', 'fail', 'animals', 'sport', 'celebration', 'reaction', 'happy', 'love'];
-        shuffle($pixabayQueries);
-        $used = 0;
+    // ── GIPHY: search trending + our keywords (100 req/h, be smart) ──
+    $giphySearches = [];
 
-        foreach ($pixabayQueries as $q) {
-            if ($used >= 3) break;
+    if ($giphyKey) {
+        // Always get trending first
+        $giphySearches[] = null; // null = trending
 
-            $resp = @file_get_contents("https://pixabay.com/api/?key={$pixabayKey}&q=" . urlencode($q) . "&per_page=20&safesearch=true&order=popular");
-            if (!$resp) continue;
+        // Add top keywords from Pixabay (max 10, 50 per search = 500 GIFs)
+        arsort($keywords);
+        $topKeywords = array_slice(array_keys($keywords), 0, 10);
+        foreach ($topKeywords as $kw) {
+            if (count($giphySearches) >= 4) break; // limit to 4 GIPHY calls
+            $giphySearches[] = $kw;
+        }
+    }
 
-            $data = json_decode($resp, true);
-            $hits = $data['hits'] ?? [];
+    $sources = [];
 
-            if (!count($hits)) continue;
-            $used++;
+    foreach ($giphySearches as $q) {
+        $url = $q === null
+            ? "https://api.giphy.com/v1/gifs/trending?api_key={$giphyKey}&limit={$count}&rating=g"
+            : "https://api.giphy.com/v1/gifs/search?api_key={$giphyKey}&q=" . urlencode($q) . "&limit={$count}&rating=g";
 
-            foreach ($hits as $img) {
-                $url = $img['webformatURL'] ?? '';
-                $largeUrl = $img['largeImageURL'] ?? '';
-                $type = $img['type'] ?? '';
+        $resp = @file_get_contents($url);
+        if (!$resp) continue;
 
-                // Try the largeImageURL first (higher quality, sometimes different format)
-                $finalUrl = $largeUrl ?: $url;
-                $ext = strtolower(pathinfo(parse_url($finalUrl, PHP_URL_PATH), PATHINFO_EXTENSION));
+        $data = json_decode($resp, true);
+        foreach ($data['data'] ?? [] as $g) {
+            $gifUrl = $g['images']['original']['url'] ?? null;
+            if (!$gifUrl) continue;
 
-                // Only accept actual GIFs or unknown extensions (we'll validate by MIME)
-                if ($ext === 'gif') {
-                    $tags = $img['tags'] ?? $q;
-                    $sources[] = [
-                        'url' => $finalUrl,
-                        'title' => $img['user'] ? $img['user'] . ' — ' . $q : 'Pixabay ' . $q,
-                        'keywords' => 'pixabay, ' . str_replace(', ', ', ', $tags),
-                    ];
-                }
-            }
+            $slug = $g['slug'] ?? '';
+            $title = $g['title'] ?: 'GIF';
+            $kw = 'giphy' . ($slug ? ', ' . $slug : '');
+            if ($q) $kw .= ', ' . $q;
+
+            $sources[] = ['url' => $gifUrl, 'title' => $title, 'keywords' => $kw];
         }
     }
 
@@ -116,8 +134,8 @@ function autoPopulate(int $count = 6): void
 
         $stmt = $pdo->prepare("INSERT INTO gifs (title, keywords, original_name, imgbb_url, imgbb_delete_url, proxy_path, file_size, mime_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->execute([
-            $src['title'],
-            $src['keywords'],
+            mb_substr($src['title'], 0, 255),
+            mb_substr($src['keywords'], 0, 500),
             'auto_' . time() . '.gif',
             $up['data']['url'],
             $up['data']['delete_url'] ?? null,
