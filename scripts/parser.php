@@ -98,8 +98,7 @@ if ($pixabayKey) {
         foreach ($data['hits'] ?? [] as $img) {
             if ($pixCount >= $count) break;
             $url = $img['webformatURL'] ?? '';
-            $ext = strtolower(pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
-            if ($ext !== 'gif') continue;
+            if (!$url) continue;
             $tags = $img['tags'] ?? $q;
             if (importGif($url, ($img['user'] ?? 'Pixabay') . ' — ' . str_replace(' gif', '', $q),
                           'pixabay, ' . str_replace(', ', ', ', $tags), 'pixabay')) {

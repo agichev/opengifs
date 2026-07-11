@@ -202,15 +202,40 @@ if ($uri === '/api' || $uri === '/api/') {
     exit;
 }
 
-// Parse endpoint (trigger auto-populate)
+// Parse API (trigger auto-populate via JSON)
 if ($uri === '/parse') {
     $start = microtime(true);
+    $cooldown = 600; // 10 minutes
+    $lockFile = __DIR__ . '/cache/parse_lock';
+    $lastRun = file_exists($lockFile) ? (int)file_get_contents($lockFile) : 0;
+    $remaining = $cooldown - (time() - $lastRun);
+
+    if ($remaining > 0 && $lastRun > 0) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Cooldown', 'remaining' => $remaining]);
+        exit;
+    }
+
+    file_put_contents($lockFile, time());
     autoPopulate(12, true);
     $elapsed = round(microtime(true) - $start, 2);
     $pdo = getDb();
     $total = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
     header('Content-Type: application/json');
     echo json_encode(['success' => true, 'total_gifs' => (int)$total, 'time' => $elapsed . 's']);
+    exit;
+}
+
+// Parse page (manual UI)
+if ($uri === '/parse-page') {
+    $lockFile = __DIR__ . '/cache/parse_lock';
+    $lastRun = file_exists($lockFile) ? (int)file_get_contents($lockFile) : 0;
+    $remaining = 600 - (time() - $lastRun);
+    $pdo = getDb();
+    $totalGifs = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
+    $pixCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'pixabay%'")->fetchColumn();
+    $giphyCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'giphy%'")->fetchColumn();
+    require __DIR__ . '/templates/parse.php';
     exit;
 }
 

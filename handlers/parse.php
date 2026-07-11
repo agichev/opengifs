@@ -36,9 +36,9 @@ function autoPopulate(int $count = 6, bool $force = false): void
 
             foreach ($data['hits'] as $img) {
                 $url = $img['webformatURL'] ?? '';
-                $ext = strtolower(pathinfo(parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
-                if ($ext !== 'gif') continue;
+                if (!$url) continue;
 
+                // Don't filter by extension — download and check MIME
                 $tags = $img['tags'] ?? $q;
                 $sources[] = [
                     'url' => $url,

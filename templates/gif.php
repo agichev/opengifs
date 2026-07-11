@@ -1,7 +1,19 @@
 <?php
 $pageTitle = $gif['title'] ?? 'GIF';
+$gifUrl = $baseUrl . '/g/' . $gif['proxy_path'];
+$gifPage = $baseUrl . '/gif/' . $gif['proxy_path'];
+$gifTitle = htmlspecialchars($gif['title'] ?? 'OpenGifs GIF');
 require __DIR__ . '/header.php';
 ?>
+<meta property="og:title" content="<?= $gifTitle ?>">
+<meta property="og:description" content="View on OpenGifs — Free GIF hosting">
+<meta property="og:image" content="<?= $gifUrl ?>">
+<meta property="og:image:type" content="image/gif">
+<meta property="og:url" content="<?= $gifPage ?>">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="player">
+<meta name="twitter:title" content="<?= $gifTitle ?>">
+<meta name="twitter:image" content="<?= $gifUrl ?>">
 
 <div class="gif-single">
     <h1><?= htmlspecialchars($gif['title'] ?? 'Untitled GIF') ?></h1>
