@@ -156,33 +156,21 @@ if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
         exit;
     }
 
-    $cacheDir = __DIR__ . '/cache';
-    $cacheFile = $cacheDir . '/' . $gif['id'] . '.gif';
+    $ch = curl_init($gif['imgbb_url']);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_USERAGENT => 'Mozilla/5.0',
+    ]);
+    $body = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
 
-    if (!is_dir($cacheDir)) {
-        mkdir($cacheDir, 0755, true);
-    }
-
-    if (file_exists($cacheFile)) {
-        $body = file_get_contents($cacheFile);
-    } else {
-        $ch = curl_init($gif['imgbb_url']);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_FOLLOWLOCATION => true,
-        ]);
-        $body = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($httpCode !== 200) {
-            http_response_code(502);
-            echo '<h1>502 — Failed to fetch GIF</h1>';
-            exit;
-        }
-
-        file_put_contents($cacheFile, $body);
+    if ($httpCode !== 200) {
+        http_response_code(502);
+        echo '<h1>502 — Failed to fetch GIF</h1>';
+        exit;
     }
 
     header('Content-Type: ' . ($gif['mime_type'] ?: 'image/gif'));
@@ -206,32 +194,45 @@ if ($uri === '/api' || $uri === '/api/') {
 if ($uri === '/parse') {
     $start = microtime(true);
     $cooldown = 600; // 10 minutes
-    $lockFile = __DIR__ . '/cache/parse_lock';
-    $lastRun = file_exists($lockFile) ? (int)file_get_contents($lockFile) : 0;
+    $pdo = getDb();
+
+    $stmt = $pdo->prepare("SELECT meta_value FROM meta WHERE meta_key = 'parse_last_run'");
+    $stmt->execute();
+    $lastRun = (int)$stmt->fetchColumn();
     $remaining = $cooldown - (time() - $lastRun);
 
     if ($remaining > 0 && $lastRun > 0) {
         header('Content-Type: application/json');
-        echo json_encode(['success' => false, 'error' => 'Cooldown', 'remaining' => $remaining]);
+        echo json_encode(['success' => false, 'error' => 'cooldown', 'remaining' => $remaining]);
         exit;
     }
 
-    file_put_contents($lockFile, time());
+    $stmt = $pdo->prepare("INSERT INTO meta (meta_key, meta_value) VALUES ('parse_last_run', ?) ON DUPLICATE KEY UPDATE meta_value = ?");
+    $stmt->execute([time(), time()]);
+
+    $before = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
     autoPopulate(12, true);
+    $after = (int)$pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
     $elapsed = round(microtime(true) - $start, 2);
-    $pdo = getDb();
-    $total = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
+
     header('Content-Type: application/json');
-    echo json_encode(['success' => true, 'total_gifs' => (int)$total, 'time' => $elapsed . 's']);
+    echo json_encode([
+        'success' => true,
+        'imported' => $after - $before,
+        'total' => $after,
+        'time' => $elapsed . 's',
+    ]);
     exit;
 }
 
 // Parse page (manual UI)
 if ($uri === '/parse-page') {
-    $lockFile = __DIR__ . '/cache/parse_lock';
-    $lastRun = file_exists($lockFile) ? (int)file_get_contents($lockFile) : 0;
-    $remaining = 600 - (time() - $lastRun);
     $pdo = getDb();
+    $stmt = $pdo->prepare("SELECT meta_value FROM meta WHERE meta_key = 'parse_last_run'");
+    $stmt->execute();
+    $lastRun = (int)$stmt->fetchColumn();
+    $remaining = max(0, 600 - (time() - $lastRun));
+
     $totalGifs = $pdo->query("SELECT COUNT(*) FROM gifs")->fetchColumn();
     $pixCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'pixabay%'")->fetchColumn();
     $giphyCount = $pdo->query("SELECT COUNT(*) FROM gifs WHERE keywords LIKE 'giphy%'")->fetchColumn();

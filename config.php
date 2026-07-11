@@ -79,11 +79,13 @@ function ensureTable(): void
                 INDEX idx_views (views)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
-        // Add source_url column if missing (MySQL doesn't support IF NOT EXISTS for ALTER)
+        // Meta table for key-value storage (parse cooldown, etc.)
+        $pdo->exec("CREATE TABLE IF NOT EXISTS meta (meta_key VARCHAR(100) PRIMARY KEY, meta_value VARCHAR(500) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // Add source_url column if missing
         try {
             $pdo->exec("ALTER TABLE gifs ADD COLUMN source_url VARCHAR(500) DEFAULT NULL AFTER imgbb_delete_url");
         } catch (PDOException $e) {
-            // Column already exists — ignore
+            // Column already exists
         }
     } catch (PDOException $e) {
         http_response_code(500);
