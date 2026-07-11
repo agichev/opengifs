@@ -143,7 +143,7 @@ if (preg_match('#^/gif/([a-f0-9]+)$#', $uri, $m)) {
     exit;
 }
 
-// Proxy (redirect to imgBB direct URL, hiding upload page)
+// Proxy (serve GIF through our server, hiding real imgBB URL)
 if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
     $pdo = getDb();
     $stmt = $pdo->prepare("SELECT imgbb_url FROM gifs WHERE proxy_path = ?");
@@ -152,12 +152,38 @@ if (preg_match('#^/g/([a-f0-9]+)$#', $uri, $m)) {
 
     if (!$gif) {
         http_response_code(404);
-        echo '<h1>404</h1>';
+        echo '404';
         exit;
     }
 
-    $url = $gif['imgbb_url'];
-    header('Location: ' . $url, true, 302);
+    $ch = curl_init($gif['imgbb_url']);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS => 5,
+    ]);
+    $data = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$data) {
+        http_response_code(502);
+        exit;
+    }
+
+    // Validate it's actually a GIF
+    if (substr($data, 0, 6) !== 'GIF87a' && substr($data, 0, 6) !== 'GIF89a') {
+        http_response_code(502);
+        exit;
+    }
+
+    ob_clean();
+    header('Content-Type: image/gif');
+    header('Content-Length: ' . strlen($data));
+    header('Cache-Control: public, max-age=31536000');
+    header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 31536000) . ' GMT');
+    echo $data;
     exit;
 }
 
@@ -169,7 +195,7 @@ if ($uri === '/api' || $uri === '/api/') {
     exit;
 }
 
-// Parse API (trigger auto-populate via JSON)
+// Parse API (trigger via JSON, used internally)
 if ($uri === '/parse') {
     set_time_limit(120);
     session_write_close();

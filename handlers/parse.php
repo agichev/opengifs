@@ -5,7 +5,6 @@ function autoPopulate(int $count = 6, bool $force = false): void
     $pdo = getDb();
     $imgbbKey = env('IMGBB_API_KEY');
     $giphyKey = env('GIPHY_API_KEY');
-    $klipyKey = env('KLIPY_API_KEY');
 
     if (!$imgbbKey) return;
 
@@ -16,47 +15,46 @@ function autoPopulate(int $count = 6, bool $force = false): void
 
     $sources = [];
 
-    // ── 1. KLIPY ──
-    if ($klipyKey) {
-        $queries = ['funny', 'cat', 'dance', 'animals', 'reaction', 'happy', 'love', 'fail', 'cute', 'baby', 'dog', 'party', 'celebration', 'sport', 'music'];
-        shuffle($queries);
-        $used = 0;
+    // ── 1. KLIPY (no key needed, public API) ──
+    $klipyQueries = ['funny', 'cat', 'dance', 'animals', 'reaction', 'happy', 'love', 'fail', 'cute', 'baby', 'dog', 'party', 'celebration', 'sport', 'music', 'wow', 'omg', 'thank you', 'yes', 'no', 'sorry', 'please'];
+    shuffle($klipyQueries);
+    $used = 0;
 
-        foreach ($queries as $q) {
-            if ($used >= 3) break;
+    foreach ($klipyQueries as $q) {
+        if ($used >= 3) break;
 
-            $ch = curl_init("https://api.klipy.com/api/v1/search?query=" . urlencode($q) . "&page=1&per_page=20");
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 15,
-                CURLOPT_HTTPHEADER => ['Origin: https://klipy.co', 'Referer: https://klipy.co/'],
-            ]);
-            $resp = curl_exec($ch);
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+        $ch = curl_init("https://api.klipy.com/api/v1/search?query=" . urlencode($q) . "&page=1&per_page=20");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_HTTPHEADER => ['Origin: https://klipy.co', 'Referer: https://klipy.co/'],
+        ]);
+        $resp = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 
-            if ($code !== 200 || !$resp) continue;
-            $data = json_decode($resp, true);
-            if (empty($data['data'])) continue;
-            $used++;
+        if ($code !== 200 || !$resp) continue;
+        $data = json_decode($resp, true);
+        if (empty($data['data'])) continue;
+        $used++;
 
-            foreach ($data['data'] as $item) {
-                $gifUrl = $item['media']['gif']['url'] ?? $item['media']['mp4']['url'] ?? null;
-                if (!$gifUrl) continue;
-
-                $tags = is_array($item['tags'] ?? null) ? implode(', ', array_slice($item['tags'], 0, 6)) : $q;
-                $sources[] = [
-                    'url' => $gifUrl,
-                    'type' => 'klipy',
-                    'title' => $item['title'] ?? $q,
-                    'keywords' => 'klipy, ' . $tags,
-                ];
-            }
+        foreach ($data['data'] as $item) {
+            $gifUrl = $item['media']['gif']['url'] ?? $item['media']['mp4']['url'] ?? null;
+            if (!$gifUrl) continue;
+            $tags = is_array($item['tags'] ?? null) ? implode(', ', array_slice($item['tags'], 0, 6)) : $q;
+            $title = $item['title'] ?: $q;
+            $sources[] = [
+                'url' => $gifUrl,
+                'type' => 'klipy',
+                'title' => $title,
+                'keywords' => 'klipy, ' . $tags,
+            ];
         }
     }
 
-    // ── 2. GIPHY (trending only, 100 req/h) ──
+    // ── 2. GIPHY trending + random search ──
     if ($giphyKey) {
+        // Trending (may overlap, but that's fine)
         $resp = @file_get_contents("https://api.giphy.com/v1/gifs/trending?api_key={$giphyKey}&limit={$count}&rating=g");
         if ($resp) {
             $data = json_decode($resp, true);
@@ -65,23 +63,51 @@ function autoPopulate(int $count = 6, bool $force = false): void
                 if (!$gifUrl) continue;
                 $sources[] = [
                     'url' => $gifUrl, 'type' => 'giphy',
-                    'title' => $g['title'] ?: 'GIPHY GIF',
+                    'title' => $g['title'] ?: 'GIF',
                     'keywords' => 'giphy' . ($g['slug'] ? ', ' . $g['slug'] : ''),
                 ];
             }
         }
+
+        // Random search with random offset for variety
+        $giphySearches = ['cat', 'dance', 'funny', 'happy', 'reaction', 'fail', 'cute', 'love', 'baby', 'dog', 'party', 'wow', 'omg', 'celebrate', 'sport'];
+        shuffle($giphySearches);
+        $searched = 0;
+        foreach ($giphySearches as $q) {
+            if ($searched >= 2) break;
+            $off = rand(0, 40);
+            $resp = @file_get_contents("https://api.giphy.com/v1/gifs/search?api_key={$giphyKey}&q=" . urlencode($q) . "&limit={$count}&rating=g&offset={$off}");
+            if (!$resp) continue;
+            $data = json_decode($resp, true);
+            foreach ($data['data'] ?? [] as $g) {
+                $gifUrl = $g['images']['original']['url'] ?? null;
+                if (!$gifUrl) continue;
+                $sources[] = [
+                    'url' => $gifUrl, 'type' => 'giphy',
+                    'title' => $g['title'] ?: $q,
+                    'keywords' => 'giphy, ' . $q . ($g['slug'] ? ', ' . $g['slug'] : ''),
+                ];
+            }
+            $searched++;
+        }
     }
 
-    // ── IMPORT ──
+    // ── IMPORT with content hash dedup ──
     $imported = 0;
     shuffle($sources);
 
     foreach ($sources as $src) {
         if ($imported >= $count) break;
 
+        // Dedup by source URL
         $check = $pdo->prepare("SELECT id FROM gifs WHERE source_url = ?");
         $check->execute([$src['url']]);
         if ($check->fetch()) continue;
+
+        // Also dedup by title+keywords (avoid near-duplicates)
+        $check2 = $pdo->prepare("SELECT id FROM gifs WHERE title = ? AND keywords = ?");
+        $check2->execute([$src['title'], $src['keywords']]);
+        if ($check2->fetch()) continue;
 
         $ch = curl_init($src['url']);
         curl_setopt_array($ch, [
@@ -94,16 +120,14 @@ function autoPopulate(int $count = 6, bool $force = false): void
         curl_close($ch);
         if ($code !== 200 || !$data) continue;
 
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = finfo_buffer($finfo, $data);
-        finfo_close($finfo);
-        if ($mime !== 'image/gif') continue;
+        // Validate GIF header
+        if (substr($data, 0, 6) !== 'GIF87a' && substr($data, 0, 6) !== 'GIF89a') continue;
 
-        $imageData = base64_encode($data);
+        $imgData = base64_encode($data);
         $ch = curl_init('https://api.imgbb.com/1/upload');
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => ['key' => $imgbbKey, 'image' => $imageData, 'name' => 'og_' . time()],
+            CURLOPT_POSTFIELDS => ['key' => $imgbbKey, 'image' => $imgData, 'name' => 'og_' . time()],
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 60,
         ]);

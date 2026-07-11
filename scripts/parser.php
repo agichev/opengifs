@@ -7,7 +7,7 @@
  *   GIPHY  — trending (100 req/h)
  *
  * Usage: php scripts/parser.php [--dry-run] [--count=20]
- * Env:   IMGBB_API_KEY, GIPHY_API_KEY, KLIPY_API_KEY
+ * Env:   IMGBB_API_KEY, GIPHY_API_KEY
  */
 
 require __DIR__ . '/../config.php';
@@ -23,7 +23,6 @@ foreach ($argv ?? [] as $arg) {
 $pdo = getDb();
 $imgbbKey = env('IMGBB_API_KEY');
 $giphyKey = env('GIPHY_API_KEY');
-$klipyKey = env('KLIPY_API_KEY');
 
 if (!$imgbbKey) { echo "ERROR: IMGBB_API_KEY not set\n"; exit(1); }
 
@@ -78,48 +77,43 @@ function importGif(string $url, string $title, string $keywords, string $source)
     return true;
 }
 
-// ─── KLIPY ───────────────────────────────────────────────
+// ─── KLIPY (no key needed) ──────────────────────────────
 
 echo "\n=== Klipy ===\n";
 $klipyCount = 0;
 
-if ($klipyKey) {
-    $queries = ['funny', 'cat', 'dance', 'animals', 'reaction', 'happy', 'love', 'fail', 'cute', 'baby', 'dog', 'party', 'celebration', 'sport', 'music', 'wow', 'omg', 'thank you'];
-    shuffle($queries);
+shuffle($queries);
 
-    foreach ($queries as $q) {
+foreach ($queries as $q) {
+    if ($klipyCount >= $count) break;
+    echo "  [{$q}] ";
+
+    $ch = curl_init("https://api.klipy.com/api/v1/search?query=" . urlencode($q) . "&page=1&per_page=30");
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
+        CURLOPT_HTTPHEADER => ['Origin: https://klipy.co', 'Referer: https://klipy.co/'],
+    ]);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($code !== 200 || !$resp) { echo "FAILED\n"; continue; }
+
+    $data = json_decode($resp, true);
+    $found = 0;
+    foreach ($data['data'] ?? [] as $item) {
         if ($klipyCount >= $count) break;
-        echo "  [{$q}] ";
-
-        $ch = curl_init("https://api.klipy.com/api/v1/search?query=" . urlencode($q) . "&page=1&per_page=30");
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15,
-            CURLOPT_HTTPHEADER => ['Origin: https://klipy.co', 'Referer: https://klipy.co/'],
-        ]);
-        $resp = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($code !== 200 || !$resp) { echo "FAILED\n"; continue; }
-
-        $data = json_decode($resp, true);
-        $found = 0;
-        foreach ($data['data'] ?? [] as $item) {
-            if ($klipyCount >= $count) break;
-            $gifUrl = $item['media']['gif']['url'] ?? $item['media']['mp4']['url'] ?? null;
-            if (!$gifUrl) continue;
-            $tags = is_array($item['tags'] ?? null) ? implode(', ', array_slice($item['tags'], 0, 6)) : $q;
-            if (importGif($gifUrl, $item['title'] ?? $q, 'klipy, ' . $tags, 'klipy')) {
-                $klipyCount++;
-                $found++;
-                sleep(1);
-            }
+        $gifUrl = $item['media']['gif']['url'] ?? $item['media']['mp4']['url'] ?? null;
+        if (!$gifUrl) continue;
+        $tags = is_array($item['tags'] ?? null) ? implode(', ', array_slice($item['tags'], 0, 6)) : $q;
+        if (importGif($gifUrl, $item['title'] ?? $q, 'klipy, ' . $tags, 'klipy')) {
+            $klipyCount++;
+            $found++;
+            sleep(1);
         }
-        echo "$found imported\n";
     }
-    echo "  Klipy total: $klipyCount\n";
-} else {
-    echo "  Skipped (no API key)\n";
+    echo "$found imported\n";
 }
+echo "  Klipy total: $klipyCount\n";
 
 // ─── GIPHY ───────────────────────────────────────────────
 

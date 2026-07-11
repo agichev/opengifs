@@ -10,7 +10,8 @@ require __DIR__ . '/header.php';
 
 <div style="background:#fff;border:1px solid #d0d8e8;border-radius:8px;padding:30px;box-shadow:0 1px 4px rgba(0,0,0,0.08);max-width:500px;margin:0 auto;text-align:center;">
     <p style="font-size:14px;color:#555;margin-bottom:24px;line-height:1.7;">
-        Fetch trending GIFs from Klipy and GIPHY.
+        Fetch trending GIFs from Klipy and GIPHY.<br>
+        No API keys needed.
     </p>
 
     <?php if ($result): ?>
