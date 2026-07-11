@@ -1,6 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/PHP-8.1+-777BB4?logo=php&logoColor=white" alt="PHP">
-  <img src="https://img.shields.io/badge/Laravel-10-red?logo=laravel&logoColor=white" alt="Laravel">
+  <img src="https://img.shields.io/badge/PHP-8.0+-777BB4?logo=php&logoColor=white" alt="PHP">
   <img src="https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=white" alt="MySQL">
   <img src="https://img.shields.io/badge/license-GPLv3-blue" alt="License">
 </p>
@@ -9,75 +8,63 @@
 
 <p align="center">
   <strong>Free & open-source GIF hosting service.</strong><br>
-  Upload, share, and discover GIFs — no account required.<br>
-  Built with Laravel + MySQL. Powered by ImgBB.
+  Upload, share, and discover GIFs — no account, no setup.<br>
+  Just set env vars and go.
 </p>
 
 <p align="center">
   <a href="#features">Features</a> •
   <a href="#quick-start">Quick Start</a> •
-  <a href="#self-hosting">Self-Hosting</a> •
-  <a href="#api">API</a> •
-  <a href="#environment-variables">Configuration</a>
+  <a href="#env">Environment Variables</a> •
+  <a href="#api">API</a>
 </p>
 
 ---
 
 ## Features
 
-- **Upload GIFs** — no registration, no API keys needed
-- **Proxied URLs** — `/g/{id}` hides the real ImgBB URL, returns proper Content-Type & cache headers
-- **Full-text search** — search by title and keywords
-- **Open REST API** — search, trending, latest, random, and detail endpoints
-- **Auto-install** — creates the database table on first visit (zero config)
-- **Embed codes** — HTML, Markdown, BBCode provided for every GIF
-- **2010 Web 2.0 aesthetic** — gradients, rounded corners, glossy buttons
-- **Upload rules** — built-in content policy page
-- **Developer-friendly API docs** — examples in JS, PHP, Python, Ruby, Go, cURL
+- **Upload GIFs** — no registration needed
+- **Proxied URLs** — `/g/{id}` hides the real ImgBB URL
+- **Search** — by title and keywords
+- **Open REST API** — search, trending, latest, random, detail
+- **Auto-setup** — creates the database table on first visit
+- **Embed codes** — HTML, Markdown, BBCode for every GIF
+- **2010 Web 2.0 design** — gradients, rounded corners, no bloat
+- **Upload rules** — built-in content policy
 
 ## Quick Start
 
-The easiest way is to deploy on any cloud hosting (Railway, Heroku, Fly.io, etc.):
+Deploy on any PHP hosting (wasmer.io, Railway, Heroku, etc.):
 
-1. Set the required [environment variables](#environment-variables) in your hosting dashboard
-2. Deploy — the first visit will auto-run migrations
-3. Get an [ImgBB API key](https://api.imgbb.com/) and set `IMGBB_API_KEY`
+1. Set the required [environment variables](#env) in your hosting dashboard
+2. Get an [ImgBB API key](https://api.imgbb.com/) and set `IMGBB_API_KEY`
+3. Deploy — that's it. The table is created on first visit.
 
 ## Self-Hosting
+
+Requirements: PHP 8.0+ with `pdo_mysql`, `curl`, `mbstring` extensions + MySQL 8+.
 
 ```bash
 git clone https://github.com/agichev/opengifs.git
 cd opengifs
-composer install
-php artisan key:generate
 ```
 
-Create a MySQL database and set your credentials in your environment. Then visit the site — migrations run automatically.
+Point your web server to the project root. The `index.php` in root handles all routing.
 
-> **Document root:** point your web server to `public/` for best results.
-> If your host doesn't allow changing the document root, the root `index.php` will automatically forward requests to `public/`.
-
-## Environment Variables
+## <a name="env"></a>Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `APP_KEY` | **yes** | — | Laravel app key (run `php artisan key:generate`) |
-| `APP_ENV` | no | `production` | Environment mode |
-| `APP_DEBUG` | no | `false` | Enable debug mode |
-| `APP_URL` | no | `http://localhost` | Public URL |
-| `DB_CONNECTION` | **yes** | `mysql` | Database driver |
 | `DB_HOST` | no | `127.0.0.1` | Database host |
 | `DB_PORT` | no | `3306` | Database port |
-| `DB_DATABASE` | **yes** | — | Database name |
-| `DB_USERNAME` | **yes** | — | Database user |
+| `DB_DATABASE` | **yes** | `opengifs` | Database name |
+| `DB_USERNAME` | **yes** | `root` | Database user |
 | `DB_PASSWORD` | no | — | Database password |
-| `IMGBB_API_KEY` | **yes** | — | [ImgBB API key](https://api.imgbb.com/) |
+| `IMGBB_API_KEY` | **yes** | — | [Get here](https://api.imgbb.com/) |
 
-## API
+## <a name="api"></a>API
 
-OpenGifs provides a free, open REST API — no key required.
-
-### Endpoints
+Open REST API — no key required. Rate limit: 120 req/min.
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -87,53 +74,27 @@ OpenGifs provides a free, open REST API — no key required.
 | `GET` | `/api/v1/gifs/random` | Random GIF |
 | `GET` | `/api/v1/gifs/{id}` | GIF by ID |
 
-**Rate limit:** 120 req/min per IP.
-
 ```bash
 curl "/api/v1/gifs/search?q=cat&limit=3"
 ```
 
-Response:
+Full API docs with integration examples (JavaScript, PHP, Python, cURL) at `/api`.
 
-```json
-{
-  "success": true,
-  "query": "cat",
-  "count": 1,
-  "data": [
-    {
-      "id": 1,
-      "title": "Funny cat",
-      "keywords": ["cat", "funny"],
-      "url": "https://opengifs.com/gif/abc123",
-      "gif_url": "https://opengifs.com/g/abc123",
-      "file_size": 123456,
-      "views": 42,
-      "created_at": "2026-01-15T12:00:00+00:00"
-    }
-  ]
-}
+## Project Structure
+
 ```
-
-Full API docs with integration examples (JavaScript, PHP, Python, Ruby, Go, cURL) are available at `/api` on your instance.
-
-## Tech Stack
-
-- **Backend:** Laravel 10, PHP 8.1+
-- **Database:** MySQL 8+ / MariaDB 10+
-- **File storage:** ImgBB (external API)
-- **HTTP client:** Guzzle
-- **License:** GPLv3
+index.php              ← Router (entry point)
+config.php             ← DB connection, env vars, auto-table
+handlers/
+├── upload.php         ← Upload to ImgBB
+└── api.php            ← API logic
+templates/             ← HTML pages
+public/css/style.css   ← 2010 Web 2.0 styles
+```
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/amazing`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing`)
-5. Open a Pull Request
+Fork, branch, PR. Follow PSR-12. Keep everything in English.
 
 ## License
 
@@ -141,6 +102,4 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 ---
 
-<p align="center">
-  <sub>Made by <a href="https://github.com/agichev">Agichev</a></sub>
-</p>
+<p align="center"><sub>Made by <a href="https://github.com/agichev">Agichev</a></sub></p>
